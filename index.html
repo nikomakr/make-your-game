@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Brick Breaker</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div id="app">
+
+      <!-- keeping the HUD outside the SVG on purpose — if it were inside,
+           every score/timer update would trigger a repaint in the game area -->
+      <header id="hud">
+        <div class="hud-cell">
+          <span class="hud-label">Score</span>
+          <span class="hud-value" id="score">0</span>
+        </div>
+        <div class="hud-cell hud-center">
+          <span class="hud-label">Time</span>
+          <span class="hud-value" id="timer">00:00</span>
+        </div>
+        <div class="hud-cell hud-right">
+          <span class="hud-label">Lives</span>
+          <span class="hud-value" id="lives">♥ ♥ ♥</span>
+        </div>
+      </header>
+
+      <div id="viewport">
+
+        <!-- svg is the whole game area — using SVG instead of canvas because
+             every element in here is a real DOM node we can move with transform
+             attributes. the browser composites those moves on the GPU without
+             repainting anything. viewBox="0 0 480 640" is our internal coordinate
+             space — everything is positioned relative to this regardless of
+             how big the element actually renders on screen -->
+        <svg
+          id="game"
+          viewBox="0 0 480 640"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-label="Brick Breaker game area"
+        >
+
+          <!-- g is basically a div for SVG — groups elements so they can share
+               a transform, visibility, or filter as one unit. we've got a
+               separate g for each layer so touching one never affects the others -->
+
+          <!-- bg layer: drawn once on load, never touched again -->
+          <g id="layer-bg" aria-hidden="true">
+
+            <!-- rect draws a rectangle — x, y, width, height, optional rx for
+                 rounded corners. this one covers the full 480x640 viewport and
+                 pulls its colour from the gradient we define in defs below -->
+            <rect width="480" height="640" fill="url(#bg-gradient)" />
+
+            <!-- second rect, same size, just overlays the scanline pattern at
+                 8% opacity — costs nothing extra, no repaint -->
+            <rect width="480" height="640" fill="url(#scanlines)" opacity="0.08" />
+          </g>
+
+          <!-- defs is where we stash reusable stuff: gradients, patterns, filters.
+               nothing in here actually renders — it only shows up when something
+               else references it by id. browser computes it once and caches it -->
+          <defs>
+
+            <!-- linearGradient blends between colours along a straight line.
+                 x1/y1 is where it starts, x2/y2 is where it ends — both as
+                 fractions of the shape's bounding box (so 0,0 → 0,1 = top to bottom).
+                 the rect above pulls this in via fill="url(#bg-gradient)" -->
+            <linearGradient id="bg-gradient" x1="0" y1="0" x2="0" y2="1">
+
+              <!-- stop is a colour point inside the gradient — offset is where
+                   along the line it sits (0% = start, 100% = end). you need
+                   at least two of these or there's nothing to blend between -->
+              <stop offset="0%"   stop-color="#0a0a14" />
+              <stop offset="100%" stop-color="#0d0d1f" />
+            </linearGradient>
+
+            <!-- pattern tiles a shape repeatedly as a fill. width/height is the
+                 tile size; patternUnits="userSpaceOnUse" means those numbers are
+                 in our SVG coordinate space, not relative to whatever element
+                 uses the pattern. the rect inside draws one line per 2px tile —
+                 stacked up across the whole background it looks like CRT scanlines -->
+            <pattern id="scanlines" x="0" y="0" width="2" height="2" patternUnits="userSpaceOnUse">
+              <rect x="0" y="0" width="2" height="1" fill="#ffffff" />
+            </pattern>
+
+            <!-- same gradient setup for the paddle, just lighter colours
+                 to give it a slight 3D feel -->
+            <linearGradient id="paddle-gradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%"   stop-color="#e0e0ff" />
+              <stop offset="100%" stop-color="#8080cc" />
+            </linearGradient>
+
+            <!-- filter is a container for visual effects that run post-render on
+                 the GPU — so no layout, no paint, just the compositor doing its
+                 thing. the x/y/width/height percentages expand the filter region
+                 beyond the element's bounds so the glow has room to spread out -->
+            <filter id="ball-glow" x="-50%" y="-50%" width="200%" height="200%">
+
+              <!-- feGaussianBlur blurs whatever is fed into it. stdDeviation is
+                   the blur radius. result="blur" gives the output a name so the
+                   next step can grab it — without that name it'd just disappear -->
+              <feGaussianBlur stdDeviation="3" result="blur" />
+
+              <!-- feMerge stacks filter outputs on top of each other in order.
+                   without this we'd only see the blurred version with no sharp
+                   ball on top — feMerge is what lets us layer them -->
+              <feMerge>
+
+                <!-- feMergeNode is one layer in the stack. in="blur" pulls in
+                     the blurred copy we named above — that goes down first.
+                     the second one defaults to SourceGraphic which is the original
+                     unfiltered ball — sharp, on top. bottom to top, in order -->
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+
+            <!-- quick filter for brick hit flash — just cranks the saturation
+                 way up for a frame so the brick pops bright on impact -->
+            <filter id="brick-hit">
+
+              <!-- feColorMatrix shifts pixel colours using a matrix operation.
+                   type="saturate" with values="3" triples the colour intensity —
+                   no geometry change, no layout hit, just a colour shift -->
+              <feColorMatrix type="saturate" values="3" />
+            </filter>
+
+          </defs>
+
+          <!-- brick grid — empty on purpose. game.js builds the rects once at
+               startup and keeps references to them. when a brick dies we just
+               flip visibility="hidden" rather than removing it from the DOM,
+               so there's zero insertion/deletion happening mid-game -->
+          <g id="layer-bricks"></g>
+
+          <!-- ball gets its own g so the will-change: transform in CSS only
+               promotes this layer to the compositor, nothing else around it -->
+          <g id="layer-ball">
+
+            <!-- circle draws a circle from a centre point (cx, cy) and radius (r).
+                 we move it every frame by updating cx and cy — cheap in SVG because
+                 there's no layout engine involved, just the compositor shifting
+                 an already-promoted layer -->
+            <circle
+              id="ball"
+              cx="240"
+              cy="400"
+              r="7"
+              fill="#ffffff"
+              filter="url(#ball-glow)"
+            />
+          </g>
+
+          <!-- paddle layer promoted the same way as the ball layer —
+               only x changes each frame to slide it left and right -->
+          <g id="layer-paddle">
+
+            <!-- rect again, rx="5" gives it rounded ends, gradient fill from defs.
+                 x gets updated every frame to move the paddle horizontally -->
+            <rect
+              id="paddle"
+              x="190"
+              y="610"
+              width="100"
+              height="10"
+              rx="5"
+              fill="url(#paddle-gradient)"
+            />
+          </g>
+
+          <!-- all four screens live in one overlay layer. only one child g
+               is visible at a time — toggled via visibility so the compositor
+               handles it without repainting the game underneath -->
+          <g id="layer-overlay" visibility="visible">
+
+            <!-- start screen — what the player sees before hitting enter -->
+            <g id="screen-start">
+              <rect width="480" height="640" fill="#0a0a14" opacity="0.85" />
+              <text x="240" y="240" class="overlay-title" text-anchor="middle">BRICK BREAKER</text>
+              <text x="240" y="300" class="overlay-sub"   text-anchor="middle">Press ENTER to play</text>
+              <text x="240" y="380" class="overlay-hint"  text-anchor="middle">← → to move  ·  P to pause</text>
+            </g>
+
+            <!-- pause menu — p key during gameplay brings this up -->
+            <g id="screen-pause" visibility="hidden">
+              <rect width="480" height="640" fill="#0a0a14" opacity="0.88" />
+              <text x="240" y="250" class="overlay-title" text-anchor="middle">PAUSED</text>
+
+              <!-- each button is a g wrapping a rect and a text label —
+                   one click target covers both without needing two listeners -->
+              <g id="btn-continue" class="menu-btn" transform="translate(240,310)">
+                <rect x="-90" y="-22" width="180" height="44" rx="4" fill="#1a1a3a" stroke="#5555cc" stroke-width="1.5" />
+                <text x="0" y="7" class="btn-label" text-anchor="middle">Continue</text>
+              </g>
+              <g id="btn-restart-pause" class="menu-btn" transform="translate(240,380)">
+                <rect x="-90" y="-22" width="180" height="44" rx="4" fill="#1a1a3a" stroke="#5555cc" stroke-width="1.5" />
+                <text x="0" y="7" class="btn-label" text-anchor="middle">Restart</text>
+              </g>
+            </g>
+
+            <!-- game over — ball fell through with no lives left -->
+            <g id="screen-gameover" visibility="hidden">
+              <rect width="480" height="640" fill="#0a0a14" opacity="0.88" />
+              <text x="240" y="240" class="overlay-title overlay-danger" text-anchor="middle">GAME OVER</text>
+              <text x="240" y="295" class="overlay-sub" text-anchor="middle" id="final-score-label">Score: 0</text>
+              <g id="btn-restart-over" class="menu-btn" transform="translate(240,370)">
+                <rect x="-90" y="-22" width="180" height="44" rx="4" fill="#1a1a3a" stroke="#cc3333" stroke-width="1.5" />
+                <text x="0" y="7" class="btn-label" text-anchor="middle">Play Again</text>
+              </g>
+            </g>
+
+            <!-- win screen — all bricks cleared -->
+            <g id="screen-win" visibility="hidden">
+              <rect width="480" height="640" fill="#0a0a14" opacity="0.88" />
+              <text x="240" y="240" class="overlay-title overlay-success" text-anchor="middle">YOU WIN</text>
+              <text x="240" y="295" class="overlay-sub" text-anchor="middle" id="win-score-label">Score: 0</text>
+              <g id="btn-restart-win" class="menu-btn" transform="translate(240,370)">
+                <rect x="-90" y="-22" width="180" height="44" rx="4" fill="#1a1a3a" stroke="#33cc66" stroke-width="1.5" />
+                <text x="0" y="7" class="btn-label" text-anchor="middle">Play Again</text>
+              </g>
+            </g>
+
+          </g>
+          <!-- /layer-overlay -->
+
+        </svg>
+      </div>
+      <!-- /viewport -->
+
+    </div>
+    <!-- /app -->
+
+  </body>
+</html>

@@ -1,0 +1,171 @@
+/* ─── Reset ────────────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* ─── Root tokens ───────────────────────────────────────────────────────────── */
+:root {
+  --clr-bg:        #07070f;
+  --clr-surface:   #0d0d1f;
+  --clr-border:    #2a2a4a;
+  --clr-accent:    #5555cc;
+  --clr-text:      #c8c8e8;
+  --clr-muted:     #55557a;
+  --clr-danger:    #cc3333;
+  --clr-success:   #33cc66;
+
+  --font-mono:     "Courier New", Courier, monospace;
+
+  --hud-h:         52px;
+}
+
+/* ─── Base ──────────────────────────────────────────────────────────────────── */
+html, body {
+  height: 100%;
+  background: var(--clr-bg);
+  color: var(--clr-text);
+  font-family: var(--font-mono);
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* ─── App shell ─────────────────────────────────────────────────────────────── */
+#app {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+  padding: 16px 16px 8px;
+  gap: 10px;
+}
+
+/* ─── HUD ───────────────────────────────────────────────────────────────────── */
+#hud {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 480px;
+  height: var(--hud-h);
+  padding: 0 16px;
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border);
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.hud-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hud-center { align-items: center; }
+.hud-right  { align-items: flex-end; }
+
+.hud-label {
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--clr-muted);
+}
+
+.hud-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--clr-text);
+  letter-spacing: 0.05em;
+}
+
+/* ─── Viewport ──────────────────────────────────────────────────────────────── */
+#viewport {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 0;
+}
+
+#game {
+  display: block;
+  width: 100%;
+  max-width: 480px;
+  /* Height governed by viewBox aspect ratio 480:640 = 3:4 */
+  aspect-ratio: 3 / 4;
+  border: 1px solid var(--clr-border);
+  border-radius: 4px;
+  background: #0a0a14;
+  /* Isolate the SVG stacking context; keeps overlay on top without z-index fights */
+  isolation: isolate;
+}
+
+/* ─── Compositor layer promotion ────────────────────────────────────────────── */
+/*
+  Promote ONLY the two elements that move every frame.
+  Everything else (bricks, background, overlay) stays on the default layer.
+  This satisfies the audit requirement: layers minimal but non-zero.
+*/
+#layer-ball,
+#layer-paddle {
+  will-change: transform;
+}
+
+/* ─── SVG overlay typography ────────────────────────────────────────────────── */
+.overlay-title {
+  font-family: var(--font-mono);
+  font-size: 42px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  fill: #e0e0ff;
+}
+
+.overlay-danger  { fill: var(--clr-danger); }
+.overlay-success { fill: var(--clr-success); }
+
+.overlay-sub {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  fill: var(--clr-text);
+  letter-spacing: 0.06em;
+}
+
+.overlay-hint {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  fill: var(--clr-muted);
+  letter-spacing: 0.05em;
+}
+
+.btn-label {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 600;
+  fill: var(--clr-text);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* ─── Menu button hover ─────────────────────────────────────────────────────── */
+.menu-btn {
+  cursor: pointer;
+}
+
+.menu-btn rect {
+  transition: fill 0.15s ease;
+}
+
+.menu-btn:hover rect,
+.menu-btn:focus rect {
+  fill: #25254a;
+}
+
+/* ─── Reduced motion ────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .menu-btn rect {
+    transition: none;
+  }
+}
