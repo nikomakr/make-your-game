@@ -4,7 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Brick Breaker</title>
-    <link rel="stylesheet" href="style.css" />
+    <link rel="preload" href="style.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="style.css"></noscript>
+    <!-- Moved them here due to use of  defer  as after running performance checks it was recommended -->
+    <script src="input.js" defer></script>
+    <script src="physics.js" defer></script>
+    <script src="render.js" defer></script>
+    <script src="game.js" defer></script>
   </head>
   <body>
     <div id="app">
@@ -233,7 +239,4 @@
     <!-- /app -->
 
   </body>
-  <script src="input.js"></script>
-  <script src="physics.js"></script>
-  <script src="render.js"></script>
 </html>
