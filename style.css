@@ -140,6 +140,45 @@ html, body {
   letter-spacing: 0.05em;
 }
 
+/* ─── Start screen: brick title + key caps ──────────────────────────────────── */
+.title-tile {
+  stroke: rgba(0, 0, 0, 0.3);
+  stroke-width: 1;
+}
+
+.title-letter {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 700;
+  fill: #ffffff;
+  stroke: #0a0a14;
+  stroke-width: 3px;
+  paint-order: stroke;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+.enter-emphasis {
+  font-size: 22px;
+  font-weight: 700;
+  fill: #e0e0ff;
+}
+
+.keycap-box {
+  fill: #1a1a3a;
+  stroke: #5555cc;
+  stroke-width: 1.5;
+}
+
+.keycap-glyph {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  fill: var(--clr-text);
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
 .btn-label {
   font-family: var(--font-mono);
   font-size: 15px;

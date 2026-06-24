@@ -60,6 +60,10 @@ function showScreen(name) {
 
 function hideOverlay() {
   overlay.setAttribute("visibility", "hidden");
+  // hide all child screens too — SVG visibility doesn't cascade like HTML
+  Object.values(screens).forEach((el) =>
+    el.setAttribute("visibility", "hidden"),
+  );
 }
 
 function renderScore(score) {
