@@ -88,18 +88,16 @@ html, body {
   justify-content: center;
   width: 100%;
   min-height: 0;
+  overflow: hidden;
 }
 
 #game {
   display: block;
-  width: 100%;
-  max-width: 480px;
-  /* Height governed by viewBox aspect ratio 480:640 = 3:4 */
+  width: min(480px, 100%, calc((100vh - var(--hud-h) - 58px) * 3 / 4));
   aspect-ratio: 3 / 4;
   border: 1px solid var(--clr-border);
   border-radius: 4px;
   background: #0a0a14;
-  /* Isolate the SVG stacking context; keeps overlay on top without z-index fights */
   isolation: isolate;
 }
 
@@ -194,17 +192,10 @@ html, body {
 }
 
 .menu-btn rect {
-  transition: fill 0.15s ease;
+  opacity: 1;
 }
 
 .menu-btn:hover rect,
 .menu-btn:focus rect {
-  fill: #25254a;
-}
-
-/* ─── Reduced motion ────────────────────────────────────────────────────────── */
-@media (prefers-reduced-motion: reduce) {
-  .menu-btn rect {
-    transition: none;
-  }
+  opacity: 0.7;
 }
