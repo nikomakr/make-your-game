@@ -18,7 +18,7 @@ const COLS = 10;
 const BRICK_W = 42;
 const BRICK_H = 16;
 const BRICK_GAP = 4;
-const BRICK_OFFSET_X = 9; // Left margin so the grid sits centred in the 480-unit field
+const BRICK_OFFSET_X = 12; // Left margin so the grid sits centred in the 480-unit field - it was 9px due to wrong math.
 const BRICK_OFFSET_Y = 60; // Top margin — pushes the grid down from the ceiling
 
 // One colour per row — top rows worth more points
